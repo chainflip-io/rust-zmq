@@ -25,6 +25,11 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+    Modified by Chainflip Labs GmbH on 2026-11-12: stop the heartbeat
+    interval timer and PONG replies from writing to an engine that has hit
+    an I/O error (libzmq issues #4364 and #4841). The modified file is
+    distributed under the same license and special exception as above.
 */
 
 #include "precompiled.hpp"
