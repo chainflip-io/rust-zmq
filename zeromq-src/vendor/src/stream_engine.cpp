@@ -318,6 +318,16 @@ bool zmq::stream_engine_t::in_event_internal ()
     if (_input_stopped) {
         rm_fd (_handle);
         _io_error = true;
+
+        //  The engine now lives on only until restart_input () has pushed
+        //  what is already decoded into the pipe, after which it errors out.
+        //  Nothing can be written in the meantime, so the heartbeat interval
+        //  timer must not fire: its out_event () call would trip the
+        //  !_io_error assertion.
+        if (_has_heartbeat_timer) {
+            cancel_timer (heartbeat_ivl_timer_id);
+            _has_heartbeat_timer = false;
+        }
         return true; // TODO or return false in this case too?
     }
 
@@ -1229,8 +1239,14 @@ int zmq::stream_engine_t::process_heartbeat_message (msg_t *msg_)
                     static_cast<uint8_t *> (msg_->data ()) + ping_ttl_len,
                     context_len);
 
-        _next_msg = &stream_engine_t::produce_pong_message;
-        out_event ();
+        //  A PING can still be decoded from restart_input () after the
+        //  connection is already gone (_io_error set while input was
+        //  stopped); the reply cannot be sent, and out_event () must not be
+        //  entered in that state.
+        if (!_io_error) {
+            _next_msg = &stream_engine_t::produce_pong_message;
+            out_event ();
+        }
     }
 
     return 0;
